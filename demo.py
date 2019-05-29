@@ -22,6 +22,7 @@ from __future__ import print_function
 import sys
 from absl import flags
 import numpy as np
+import os
 
 import skimage.io as io
 import tensorflow as tf
@@ -32,11 +33,19 @@ from src.util import openpose as op_util
 import src.config
 from src.RunModel import RunModel
 
+image_ext = ['jpg', 'jpeg', 'png']
+
+njoints = 19
+nsmpl = 85
+
 flags.DEFINE_string('img_path', 'data/im1963.jpg', 'Image to run')
 flags.DEFINE_string(
     'json_path', None,
     'If specified, uses the openpose output to crop the image.')
 
+def is_image(file_name):
+    ext = file_name[file_name.rfind('.') + 1:].lower()
+    return ext in image_ext
 
 def visualize(img, proc_param, joints, verts, cam):
     """
@@ -119,19 +128,31 @@ def preprocess_image(img_path, json_path=None):
 def main(img_path, json_path=None):
     sess = tf.Session()
     model = RunModel(config, sess=sess)
+    
+    path_dec = img_path.split("/")
+    
+    ls = os.listdir(img_path)
+    result_smpl = np.empty((0,nsmpl))
+    result_3d_joints = np.empty((0,3*njoints))
+    for img in sorted(ls):
+        if is_image(img):
+            image_name = os.path.join(img_path, img)
+            input_img, proc_param, img = preprocess_image(image_name, json_path)
+            # Add batch dimension: 1 x D x D x 3
+            input_img = np.expand_dims(input_img, 0)
 
-    input_img, proc_param, img = preprocess_image(img_path, json_path)
-    # Add batch dimension: 1 x D x D x 3
-    input_img = np.expand_dims(input_img, 0)
-
-    # Theta is the 85D vector holding [camera, pose, shape]
-    # where camera is 3D [s, tx, ty]
-    # pose is 72D vector holding the rotation of 24 joints of SMPL in axis angle format
-    # shape is 10D shape coefficients of SMPL
-    joints, verts, cams, joints3d, theta = model.predict(
-        input_img, get_theta=True)
-
-    visualize(img, proc_param, joints[0], verts[0], cams[0])
+            # Theta is the 85D vector holding [camera, pose, shape]
+            # where camera is 3D [s, tx, ty]
+            # pose is 72D vector holding the rotation of 24 joints of SMPL in axis angle format
+            # shape is 10D shape coefficients of SMPL
+            joints, verts, cams, joints3d, theta = model.predict(
+                input_img, get_theta=True)
+            result_3d_joints = np.append(result_3d_joints, [joints3d.flatten()], axis=0)
+            result_smpl = np.append(result_smpl, [theta.flatten()], axis=0)
+            
+    #visualize(img, proc_param, joints[0], verts[0], cams[0])
+    np.save(os.path.join('../coords', path_dec[-1] + '.npy'), result_3d_joints)
+    #np.save(os.path.join('../smpl_new', path_dec[-1] + '.npy'), result_smpl)
 
 
 if __name__ == '__main__':
