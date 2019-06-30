@@ -148,11 +148,15 @@ def main(img_path, json_path=None):
             joints, verts, cams, joints3d, theta = model.predict(
                 input_img, get_theta=True)
             result_3d_joints = np.append(result_3d_joints, [joints3d.flatten()], axis=0)
+            print(cams)
+            print(theta)
+            print(joints)
             result_smpl = np.append(result_smpl, [theta.flatten()], axis=0)
             
     #visualize(img, proc_param, joints[0], verts[0], cams[0])
-    np.save(os.path.join('../coords', path_dec[-1] + '.npy'), result_3d_joints)
-    #np.save(os.path.join('../smpl_new', path_dec[-1] + '.npy'), result_smpl)
+    np.save(os.path.join('../coords_kazanawa', path_dec[-1] + '.npy'), result_3d_joints)
+    #np.save(os.path.join('../pixels', path_dec[-1] + '.npy'), result_3d_joints))
+    #np.save(os.path.join('../smpl', path_dec[-1] + '.npy'), result_smpl)
 
 
 if __name__ == '__main__':
